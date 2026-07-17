@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Validador de RUT Chileno — Demo en vivo · Giancarlos Alfaro</title>
+<meta name="description" content="Demo interactiva del validador de RUT chileno (algoritmo módulo 11). Calcula el dígito verificador, valida y formatea RUT en tiempo real." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<style>
+  :root{
+    --bg:#0d1117; --bg-soft:#161b22; --card:#161b22; --border:#232a34;
+    --text:#e6edf3; --muted:#9aa7b4; --accent:#3b82f6; --accent-2:#22d3ee;
+    --ok:#22c55e; --err:#f87171;
+    --grad:linear-gradient(135deg,#3b82f6 0%,#22d3ee 100%);
+    --shadow:0 12px 40px rgba(0,0,0,.35); --radius:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.6;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+    display:flex; flex-direction:column;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{width:100%;max-width:760px;margin:0 auto;padding:0 22px}
+  .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  code,.mono{font-family:'JetBrains Mono',monospace}
+
+  /* NAV */
+  header{position:sticky;top:0;z-index:20;backdrop-filter:blur(12px);
+    background:rgba(13,17,23,.72);border-bottom:1px solid var(--border)}
+  nav{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .back{color:var(--muted);font-weight:600;font-size:.92rem;display:inline-flex;align-items:center;gap:9px;transition:color .2s}
+  .back:hover{color:var(--accent-2)}
+  .lang-toggle{display:flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+  .lang-toggle button{background:none;border:none;color:var(--muted);padding:5px 12px;font:inherit;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s}
+  .lang-toggle button.active{background:var(--accent);color:#fff}
+
+  /* HERO */
+  .hero{padding:54px 0 26px;text-align:center;position:relative}
+  .hero::before{content:"";position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:460px;height:320px;
+    background:radial-gradient(circle,rgba(59,130,246,.16),transparent 70%);pointer-events:none}
+  .emoji{font-size:2.6rem;line-height:1}
+  .hero h1{font-size:clamp(1.7rem,5vw,2.4rem);font-weight:800;margin:14px 0 8px}
+  .hero p{color:var(--muted);max-width:520px;margin:0 auto;font-size:1rem}
+  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--bg-soft);border:1px solid var(--border);
+    border-radius:999px;padding:5px 14px;font-size:.8rem;color:var(--muted);margin-top:16px}
+  .pill .mono{color:var(--accent-2)}
+
+  /* CARD */
+  main{flex:1;padding-bottom:60px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);margin-top:26px}
+  .card h2{font-size:1.05rem;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .card h2 i{color:var(--accent)}
+  .card .hint{color:var(--muted);font-size:.86rem;margin-bottom:18px}
+
+  .field{position:relative}
+  .field input{
+    width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;
+    color:var(--text);font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:500;
+    padding:18px 54px 18px 18px;letter-spacing:1px;transition:border-color .2s,box-shadow .2s;text-align:center;
+  }
+  .field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(59,130,246,.15)}
+  .field input.ok{border-color:var(--ok);box-shadow:0 0 0 4px rgba(34,197,94,.14)}
+  .field input.err{border-color:var(--err);box-shadow:0 0 0 4px rgba(248,113,113,.14)}
+  .field .state{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:1.4rem}
+  .field .state.ok{color:var(--ok)} .field .state.err{color:var(--err)} .field .state.idle{color:var(--muted);opacity:.4}
+
+  .verdict{margin-top:16px;text-align:center;min-height:30px;font-weight:700;font-size:1.15rem}
+  .verdict.ok{color:var(--ok)} .verdict.err{color:var(--err)} .verdict.idle{color:var(--muted);font-weight:500;font-size:.95rem}
+
+  .rows{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .rowbox{background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .rowbox .k{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:flex;align-items:center;gap:7px}
+  .rowbox .v{font-family:'JetBrains Mono',monospace;font-size:1.15rem;font-weight:700;color:var(--accent-2);word-break:break-all}
+
+  .examples{margin-top:20px}
+  .examples .lbl{font-size:.8rem;color:var(--muted);margin-bottom:9px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--bg-soft);border:1px solid var(--border);border-radius:999px;padding:6px 13px;font-family:'JetBrains Mono',monospace;
+    font-size:.82rem;color:var(--text);cursor:pointer;transition:all .18s}
+  .chip:hover{border-color:var(--accent);color:var(--accent-2);transform:translateY(-1px)}
+
+  /* BATCH */
+  .batch textarea{
+    width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;color:var(--text);
+    font-family:'JetBrains Mono',monospace;font-size:.95rem;padding:14px 16px;resize:vertical;min-height:92px;transition:border-color .2s;
+  }
+  .batch textarea:focus{outline:none;border-color:var(--accent)}
+  .btn{display:inline-flex;align-items:center;gap:9px;padding:11px 20px;border-radius:11px;font-weight:600;font-size:.92rem;
+    cursor:pointer;border:none;background:var(--grad);color:#fff;box-shadow:0 8px 22px rgba(59,130,246,.3);transition:transform .15s;margin-top:12px}
+  .btn:hover{transform:translateY(-2px)}
+  .batch-out{margin-top:14px;display:flex;flex-direction:column;gap:7px}
+  .bline{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg-soft);border:1px solid var(--border);
+    border-radius:10px;padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:.9rem}
+  .bline .tag{font-family:'Plus Jakarta Sans',sans-serif;font-size:.78rem;font-weight:700;padding:3px 10px;border-radius:999px}
+  .bline .tag.ok{background:rgba(34,197,94,.14);color:var(--ok)} .bline .tag.err{background:rgba(248,113,113,.14);color:var(--err)}
+
+  .algo{margin-top:26px}
+  .algo details{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:4px 22px}
+  .algo summary{cursor:pointer;padding:16px 0;font-weight:700;list-style:none;display:flex;align-items:center;gap:10px}
+  .algo summary::-webkit-details-marker{display:none}
+  .algo summary i{color:var(--accent);transition:transform .2s}
+  .algo details[open] summary i.chev{transform:rotate(90deg)}
+  .algo .body{padding:0 0 18px;color:var(--muted);font-size:.92rem}
+  .algo .body code{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 7px;color:var(--accent-2);font-size:.86rem}
+  .algo .body .formula{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin:12px 0;text-align:center;color:var(--text);font-size:1rem}
+
+  footer{border-top:1px solid var(--border);padding:26px 0;text-align:center;color:var(--muted);font-size:.85rem}
+  footer a{color:var(--accent-2);font-weight:600}
+
+  [data-en]{display:none}
+  html[lang="en"] [data-es]{display:none}
+  html[lang="en"] [data-en]{display:inline}
+  @media(max-width:560px){ .rows{grid-template-columns:1fr} .field input{font-size:1.25rem} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <a class="back" href="https://gianca675.github.io"><i class="fa-solid fa-arrow-left"></i><span data-es>Volver al portafolio</span><span data-en>Back to portfolio</span></a>
+      <div class="lang-toggle">
+        <button id="btnEs" class="active" onclick="setLang('es')">ES</button>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="emoji">🆔</div>
+    <h1><span class="grad-text">Validador de RUT</span></h1>
+    <p>
+      <span data-es>Calcula el dígito verificador, valida y formatea el RUT chileno en tiempo real. Todo en el navegador con el algoritmo módulo 11.</span>
+      <span data-en>Calculate the check digit, validate and format the Chilean RUT in real time. All in the browser using the modulo-11 algorithm.</span>
+    </p>
+    <span class="pill"><i class="fa-brands fa-python"></i><span data-es>Lógica portada de</span><span data-en>Logic ported from</span> <span class="mono">validador_rut.py</span></span>
+  </div>
+</section>
+
+<main>
+  <div class="wrap">
+
+    <!-- Validador en vivo -->
+    <div class="card">
+      <h2><i class="fa-solid fa-wand-magic-sparkles"></i><span data-es>Prueba un RUT</span><span data-en>Try a RUT</span></h2>
+      <p class="hint"><span data-es>Escribe un RUT (con o sin puntos y guion). Se valida mientras escribes.</span><span data-en>Type a RUT (with or without dots and dash). It validates as you type.</span></p>
+
+      <div class="field">
+        <input id="rutInput" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="12.678.579-8" aria-label="RUT" />
+        <span id="stateIcon" class="state idle"><i class="fa-regular fa-circle"></i></span>
+      </div>
+
+      <div id="verdict" class="verdict idle"><span data-es>Esperando un RUT…</span><span data-en>Waiting for a RUT…</span></div>
+
+      <div class="rows">
+        <div class="rowbox">
+          <div class="k"><i class="fa-solid fa-hashtag"></i><span data-es>Dígito verificador</span><span data-en>Check digit</span></div>
+          <div class="v" id="outDv">—</div>
+        </div>
+        <div class="rowbox">
+          <div class="k"><i class="fa-solid fa-align-left"></i><span data-es>Formateado</span><span data-en>Formatted</span></div>
+          <div class="v" id="outFmt">—</div>
+        </div>
+      </div>
+
+      <div class="examples">
+        <div class="lbl"><span data-es>Ejemplos (haz clic):</span><span data-en>Examples (click):</span></div>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+
+    <!-- Lote -->
+    <div class="card batch">
+      <h2><i class="fa-solid fa-list-check"></i><span data-es>Validar varios (lote)</span><span data-en>Validate many (batch)</span></h2>
+      <p class="hint"><span data-es>Pega varios RUT separados por coma o salto de línea.</span><span data-en>Paste several RUTs separated by comma or new line.</span></p>
+      <textarea id="batchIn" placeholder="12.678.579-8, 11111111-1, 5.126.663-3, 60803000-K"></textarea>
+      <button class="btn" onclick="runBatch()"><i class="fa-solid fa-play"></i><span data-es>Validar lote</span><span data-en>Validate batch</span></button>
+      <div class="batch-out" id="batchOut"></div>
+    </div>
+
+    <!-- Algoritmo -->
+    <div class="algo">
+      <details>
+        <summary><i class="fa-solid fa-chevron-right chev"></i><span data-es>¿Cómo funciona el algoritmo módulo 11?</span><span data-en>How does the modulo-11 algorithm work?</span></summary>
+        <div class="body">
+          <p><span data-es>Los dígitos del cuerpo se multiplican de derecha a izquierda por la serie <code>2, 3, 4, 5, 6, 7</code> (que se repite). Se suman los productos y se calcula:</span>
+          <span data-en>The body digits are multiplied right-to-left by the repeating series <code>2, 3, 4, 5, 6, 7</code>. The products are summed and then:</span></p>
+          <div class="formula mono">DV = 11 − (suma mód 11)</div>
+          <p><span data-es>Casos especiales: si el resultado es <code>11 → 0</code> y si es <code>10 → K</code>. Por ejemplo, el cuerpo <code>12.678.579</code> tiene dígito verificador <code>8</code>.</span>
+          <span data-en>Special cases: <code>11 → 0</code> and <code>10 → K</code>. For example, the body <code>12.678.579</code> has check digit <code>8</code>.</span></p>
+        </div>
+      </details>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span data-es>Hecho por</span><span data-en>Built by</span>
+    <a href="https://gianca675.github.io">Giancarlos Alfaro</a> ·
+    <a href="https://github.com/gianca675/validador-rut-chile"><i class="fa-brands fa-github"></i> <span data-es>Código en GitHub</span><span data-en>Code on GitHub</span></a>
+  </div>
+</footer>
+
+<script>
+  /* ---------- Lógica módulo 11 (portada de validador_rut.py) ---------- */
+  function limpiarRut(rut){ return rut.replace(/[.\-\s]/g,'').toUpperCase(); }
+
+  function calcularDV(cuerpo){
+    if(!/^\d+$/.test(cuerpo)) throw new Error('cuerpo');
+    let suma = 0, mult = 2;
+    for(let i = cuerpo.length - 1; i >= 0; i--){
+      suma += parseInt(cuerpo[i],10) * mult;
+      mult = (mult === 7) ? 2 : mult + 1;
+    }
+    const resto = 11 - (suma % 11);
+    if(resto === 11) return '0';
+    if(resto === 10) return 'K';
+    return String(resto);
+  }
+
+  function validarRut(rut){
+    rut = limpiarRut(rut);
+    if(rut.length < 2) return false;
+    const cuerpo = rut.slice(0,-1), dv = rut.slice(-1);
+    if(!/^\d+$/.test(cuerpo)) return false;
+    try { return calcularDV(cuerpo) === dv; } catch(e){ return false; }
+  }
+
+  function formatearRut(rut){
+    rut = limpiarRut(rut);
+    if(rut.length < 2) return '—';
+    let cuerpo = rut.slice(0,-1); const dv = rut.slice(-1);
+    if(!/^\d+$/.test(cuerpo)) return '—';
+    const partes = [];
+    while(cuerpo.length > 3){ partes.unshift(cuerpo.slice(-3)); cuerpo = cuerpo.slice(0,-3); }
+    partes.unshift(cuerpo);
+    return partes.join('.') + '-' + dv;
+  }
+
+  /* ---------- UI ---------- */
+  const T = {
+    es:{ valid:'✓ RUT válido', invalid:'✗ RUT inválido', waiting:'Esperando un RUT…', partial:'Sigue escribiendo…' },
+    en:{ valid:'✓ Valid RUT', invalid:'✗ Invalid RUT', waiting:'Waiting for a RUT…', partial:'Keep typing…' }
+  };
+  function lang(){ return document.documentElement.lang === 'en' ? 'en' : 'es'; }
+
+  const input = document.getElementById('rutInput');
+  const stateIcon = document.getElementById('stateIcon');
+  const verdict = document.getElementById('verdict');
+  const outDv = document.getElementById('outDv');
+  const outFmt = document.getElementById('outFmt');
+
+  function setState(kind){
+    stateIcon.className = 'state ' + kind;
+    input.classList.remove('ok','err');
+    if(kind==='ok'){ stateIcon.innerHTML='<i class="fa-solid fa-circle-check"></i>'; input.classList.add('ok'); }
+    else if(kind==='err'){ stateIcon.innerHTML='<i class="fa-solid fa-circle-xmark"></i>'; input.classList.add('err'); }
+    else{ stateIcon.innerHTML='<i class="fa-regular fa-circle"></i>'; }
+  }
+
+  function update(){
+    const raw = input.value;
+    const clean = limpiarRut(raw);
+    const L = lang();
+
+    if(clean.length === 0){
+      setState('idle');
+      verdict.className='verdict idle';
+      verdict.textContent = T[L].waiting;
+      outDv.textContent='—'; outFmt.textContent='—';
+      return;
+    }
+
+    // Dígito verificador del cuerpo (todo menos el último char si parece dv, o del total)
+    const cuerpo = clean.length >= 2 ? clean.slice(0,-1) : clean;
+    try {
+      if(/^\d+$/.test(cuerpo)) outDv.textContent = calcularDV(cuerpo);
+      else outDv.textContent = '—';
+    } catch(e){ outDv.textContent = '—'; }
+
+    outFmt.textContent = formatearRut(clean);
+
+    if(clean.length < 2){
+      setState('idle');
+      verdict.className='verdict idle';
+      verdict.textContent = T[L].partial;
+      return;
+    }
+
+    if(validarRut(clean)){
+      setState('ok');
+      verdict.className='verdict ok';
+      verdict.textContent = T[L].valid;
+    } else {
+      setState('err');
+      verdict.className='verdict err';
+      verdict.textContent = T[L].invalid;
+    }
+  }
+  input.addEventListener('input', update);
+
+  /* Ejemplos */
+  const EXAMPLES = ['12.678.579-8','5.126.663-3','60803000-K','11.111.111-1','9999999-9'];
+  const chips = document.getElementById('chips');
+  EXAMPLES.forEach(function(ex){
+    const b = document.createElement('span');
+    b.className='chip'; b.textContent=ex;
+    b.onclick = function(){ input.value = ex; update(); input.focus(); };
+    chips.appendChild(b);
+  });
+
+  /* Lote */
+  function runBatch(){
+    const L = lang();
+    const raw = document.getElementById('batchIn').value;
+    const items = raw.split(/[\n,;]+/).map(s=>s.trim()).filter(Boolean);
+    const out = document.getElementById('batchOut');
+    out.innerHTML='';
+    items.forEach(function(it){
+      const ok = validarRut(it);
+      const fmt = formatearRut(it);
+      const line = document.createElement('div');
+      line.className='bline';
+      const left = document.createElement('span');
+      left.textContent = fmt !== '—' ? fmt : it;
+      const tag = document.createElement('span');
+      tag.className = 'tag ' + (ok?'ok':'err');
+      tag.textContent = ok ? (L==='en'?'valid':'válido') : (L==='en'?'invalid':'inválido');
+      line.appendChild(left); line.appendChild(tag);
+      out.appendChild(line);
+    });
+  }
+
+  /* Idioma */
+  function setLang(l){
+    document.documentElement.lang = l;
+    document.getElementById('btnEs').classList.toggle('active', l==='es');
+    document.getElementById('btnEn').classList.toggle('active', l==='en');
+    update();
+  }
+
+  // init
+  input.value = '12.678.579-8';
+  update();
+</script>
+</body>
+</html>
